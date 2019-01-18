@@ -1,0 +1,33 @@
+@startuml
+class Window {
+    title: StringProperty
+    tabs: List<Tab>
+    ...
+}
+
+class Tab {
+    title: StringProperty
+    editor: ObjectProperty<Editor>
+}
+
+class Editor {
+    tab: ReadOnlyObjectProperty<Tab>
+    source: ObjectProperty<Source>
+}
+
+class TextEditor {
+    source: ObjectProperty<TextSource>
+}
+TextEditor --|> Editor
+
+interface Source 
+interface TextSource {
+    getText(): String
+}
+TextSource --|> Source
+
+class TextFileSource {
+    file: File
+}
+TextFileSource --|> TextSource
+@enduml

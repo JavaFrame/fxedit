@@ -1,14 +1,22 @@
 package ch.sebi.fxedit;
 
-import java.io.File;
 import java.io.IOException;
+import java.io.ObjectInputStream.GetField;
 
-import ch.sebi.fxedit.runtime.Runtime;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import ch.sebi.fxedit.runtime.JsRuntime;
+import ch.sebi.fxedit.runtime.reflection.ObjectPool;
 
 public class FXEditStartup {
+	private static Logger logger = LogManager.getLogger(FXEditStartup.class);
 	public static void main(String[] args) throws IOException {
-		Runtime runtime = new Runtime();
-		String path = FXEditStartup.class.getResource("/jsruntime/test.js").getFile();
-		runtime.executeFile(new File(path));
+
+		logger.traceEntry();
+
+		JsRuntime runtime = new JsRuntime();
+		runtime.executeRC();
+		ObjectPool pool = runtime.getObjectPool();
 	}
 }
