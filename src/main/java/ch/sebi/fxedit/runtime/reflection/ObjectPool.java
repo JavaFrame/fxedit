@@ -20,7 +20,6 @@ import org.apache.logging.log4j.Logger;
 import com.eclipsesource.v8.V8Object;
 import com.eclipsesource.v8.V8ResultUndefined;
 import com.eclipsesource.v8.V8Value;
-import com.eclipsesource.v8.utils.V8ObjectUtils;
 
 import ch.sebi.fxedit.exception.FactoryNotFoundException;
 import ch.sebi.fxedit.exception.InvalidTypeException;

@@ -4,8 +4,6 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
@@ -13,11 +11,11 @@ import org.apache.logging.log4j.Logger;
 
 import com.eclipsesource.v8.JavaCallback;
 import com.eclipsesource.v8.V8;
+import com.eclipsesource.v8.V8Array;
 import com.eclipsesource.v8.V8Object;
-import com.eclipsesource.v8.V8ResultUndefined;
-import com.eclipsesource.v8.V8RuntimeException;
-import com.eclipsesource.v8.utils.V8ObjectUtils;
+import com.eclipsesource.v8.utils.MemoryManager;
 
+import ch.sebi.fxedit.exception.InvalidTypeException;
 import ch.sebi.fxedit.exception.NoIdFoundException;
 import ch.sebi.fxedit.exception.SerializeException;
 import ch.sebi.fxedit.runtime.JsRuntime;
@@ -26,9 +24,9 @@ import ch.sebi.fxedit.runtime.reflection.annotation.JsBinding;
 import ch.sebi.fxedit.runtime.reflection.annotation.JsFunction;
 import ch.sebi.fxedit.runtime.reflection.annotation.JsId;
 import ch.sebi.fxedit.runtime.reflection.annotation.JsObject;
-import ch.sebi.fxedit.utils.Annotations;
 import ch.sebi.fxedit.utils.Annotations.AnnotationMatch;
 import javafx.beans.property.Property;
+import javafx.collections.ObservableList;
 
 public class JsAnnotationClassFactory implements JsClassFactory {
 	private final Logger logger = LogManager.getLogger();
@@ -67,7 +65,11 @@ public class JsAnnotationClassFactory implements JsClassFactory {
 			if (name.isEmpty()) {
 				name = method.getName();
 			}
-			registerFunction(object, name, method);
+			try {
+				registerFunction(object, name, method, annotation.raw());
+			} catch (InvalidTypeException e) {
+				logger.error("Could not register function", e);
+			}
 		}
 	}
 
@@ -79,9 +81,21 @@ public class JsAnnotationClassFactory implements JsClassFactory {
 	 * @param name   the name of the function
 	 * @param method the java method which should be called. It doesn't matter if it
 	 *               is private or not.
+	 * @throws InvalidTypeException
 	 */
-	private void registerFunction(V8Object object, String name, Method method) {
+	private void registerFunction(V8Object object, String name, Method method, boolean raw)
+			throws InvalidTypeException {
+
+		Class<?>[] types = method.getParameterTypes();
+		if (raw) {
+			if (types.length != 2 || !V8Object.class.isAssignableFrom(types[0])
+					|| !V8Array.class.isAssignableFrom(types[1])) {
+				throw new InvalidTypeException("Cannot call the method \"" + method.toGenericString() + "\" because "
+						+ "the signature doesn't match (V8Object receiver, V8Array parameters)");
+			}
+		}
 		object.registerJavaMethod((JavaCallback) (receiver, parameters) -> {
+			MemoryManager scope = new MemoryManager(receiver.getRuntime());
 			try {
 				long id = ObjectPool.getId(receiver);
 				Object obj = pool.getJavaObj(id);
@@ -97,15 +111,24 @@ public class JsAnnotationClassFactory implements JsClassFactory {
 									+ "\" is not assignable from the class \"" + clazz.getName() + "\"");
 				}
 
-				// maps the parameter types to the parameter objects
-				Class<?>[] parametherTypes = method.getParameterTypes();
-				Object[] args = Arrays.stream(method.getParameterTypes()).map(typeObj -> {
-					if (V8Object.class.isAssignableFrom(typeObj)) {
-						return receiver;
-					}
-					throw new IllegalStateException("Cannot call the function \"" + method.toGenericString()
-							+ "\" because of the argument type \"" + typeObj.getName() + "\"");
-				}).toArray(Object[]::new);
+				if (raw) {
+					method.setAccessible(true);
+					return method.invoke(obj, receiver, parameters);
+				}
+
+				// checks parameter length
+				if (parameters.length() > method.getParameterCount()) {
+					throw new InvalidTypeException("The js function called with " + parameters.length()
+							+ " parameters, " + "but the java method \"" + method.getName() + "\"only supports "
+							+ method.getParameterCount());
+				}
+				
+				// deserializes parameters
+				Object[] args = new Object[method.getParameterCount()];
+				for(int i = 0; i < parameters.length(); i++) {
+					Object jsArg = parameters.get(i);
+					args[i] = pool.deserialize(types[i], jsArg);
+				}
 
 				// calls the method
 				method.setAccessible(true);
@@ -114,6 +137,9 @@ public class JsAnnotationClassFactory implements JsClassFactory {
 				throw e; // runtime exception don't have to be wrapped by an other runtime exception
 			} catch (Exception e) {
 				throw new RuntimeException(e);
+			} finally {
+				scope.release();
+				method.setAccessible(true);
 			}
 		}, name);
 	}
@@ -155,20 +181,26 @@ public class JsAnnotationClassFactory implements JsClassFactory {
 				// no generics because BindingLib.bindProperty expects an impossible generic
 				Class javaPropGenericType = annotation.type();
 
-				// checks the type of the field
+				field.setAccessible(true);
+				Object fieldObj = field.get(obj);
+				field.setAccessible(false);
 				Class<?> fieldType = field.getType();
-				if (!Property.class.isAssignableFrom(fieldType)) {
+				// checks the type of the field
+				if (ObservableList.class.isAssignableFrom(fieldType)) {
+					V8Object jsArrayBindingObj = BindingUtils.createArrayBinding(runtime);
+					BindingUtils.bindObservableList((ObservableList<?>) fieldObj, jsArrayBindingObj,
+							javaPropGenericType, runtime);
+					object.add(name, jsArrayBindingObj);
+				} else if (Property.class.isAssignableFrom(fieldType)) {
+					V8Object jsBindingObj = BindingUtils.createBinding(runtime);
+					BindingUtils.bindProperty((Property<?>) fieldObj, jsBindingObj, javaPropGenericType, runtime);
+					object.add(name, jsBindingObj);
+				} else {
 					throw new IllegalStateException("the type of the JsBinding field \"" + field.toGenericString()
-							+ "\" has to be of the type \"" + Property.class.getName() + "\"");
+							+ "\" has to be of the type \"" + Property.class.getName() + "\" or \""
+							+ ObservableList.class.getName() + "\"");
 				}
 
-				// sets up the binding between js and java
-				field.setAccessible(true);
-				Property<?> javaProp = (Property<?>) field.get(obj);
-				field.setAccessible(false);
-				V8Object jsBindingObj = BindingUtils.createBinding(runtime);
-				BindingUtils.bindProperty(javaProp, jsBindingObj, javaPropGenericType, runtime);
-				object.add(name, jsBindingObj);
 			}
 		} catch (InstantiationException | IllegalAccessException | SerializeException | IllegalArgumentException
 				| InvocationTargetException | NoSuchMethodException | SecurityException e) {

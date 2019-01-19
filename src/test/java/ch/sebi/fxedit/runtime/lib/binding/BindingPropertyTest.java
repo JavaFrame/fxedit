@@ -87,7 +87,7 @@ public class BindingPropertyTest {
 			latch.countDown();
 		}, "_bindingChanged");
 		V8Object jsProp = v8.executeObjectScript(
-				"let binding = new (require('binding'))('jsInitValue');"
+				"let binding = new (require('binding').Binding)('jsInitValue');"
 						+ "binding.addListener((oldV, newV) => _bindingChanged(oldV, newV)); binding;",
 				"jsPropTest", 0);
 		assertFalse(jsProp.isUndefined(), "Js Binding is undefined");
@@ -112,7 +112,7 @@ public class BindingPropertyTest {
 	@Test
 	void testWrongType() throws InterruptedException, SerializeException {
 		StringProperty javaProp = new SimpleStringProperty("val1");
-		V8Object jsProp = v8.executeObjectScript("let binding = new (require('binding'))('jsInitValue');binding;",
+		V8Object jsProp = v8.executeObjectScript("let binding = new (require('binding').Binding)('jsInitValue');binding;",
 				"jsPropTest", 0);
 		assertFalse(jsProp.isUndefined(), "Js Binding is undefined");
 		BindingUtils.bindProperty(javaProp, jsProp, String.class, runtime);
@@ -170,7 +170,7 @@ public class BindingPropertyTest {
 			stateCounter.incrementAndGet();
 		}, "_bindingChanged");
 		V8Object jsProp = v8.executeObjectScript(
-				"let binding = new (require('binding'))('jsInitValue');"
+				"let binding = new (require('binding').Binding)('jsInitValue');"
 						+ "binding.addListener((oldV, newV) => _bindingChanged(oldV, newV)); binding;",
 				"jsPropTest", 0);
 		assertFalse(jsProp.isUndefined(), "Js Binding is undefined");
@@ -203,7 +203,7 @@ public class BindingPropertyTest {
 			latch.countDown();
 		});
 		V8Object jsProp = v8.executeObjectScript(
-				"binding = new (require('binding'))('jsInitValue');" + 
+				"binding = new (require('binding').Binding)('jsInitValue');" + 
 				"testObj = new (require('test.complex-binding'))();" +
 				"binding;",
 				"jsPropTest", 0);

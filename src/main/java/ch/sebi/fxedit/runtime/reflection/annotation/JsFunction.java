@@ -5,6 +5,8 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+import com.eclipsesource.v8.JavaCallback;
+
 /**
  * Declares the method as a js function which is callable and it will be installed 
  * on the object
@@ -20,4 +22,11 @@ public @interface JsFunction {
 	 * @return the name of the js function
 	 */
 	String name() default "";
+	
+	/**
+	 * If the paramters should be the raw V8Values received by the 
+	 * {@link JavaCallback} or if the parameters should already be unpacked.
+	 * @return if the raw arguments should be passed down
+	 */
+	boolean raw() default false;
 }
