@@ -31,12 +31,12 @@ public class BaseLib implements JsClassFactory {
 	}
 
 	@Override
-	public void initObject(JsRuntime runtime, V8Object object) {
+	public void initObject(JsRuntime runtime, V8Object object, V8Array args) {
 		
 	}
 
 	@Override
-	public Object createObject(JsRuntime runtime) {
+	public Object createObject(JsRuntime runtime, Object[] args) {
 		throw new UnsupportedOperationException("The BaseLib doesn't have a runtime instance");
 	}
 }

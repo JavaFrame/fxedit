@@ -131,6 +131,10 @@ class ArrayBinding {
 		this._listeners = [];
 	}
 
+	get(index) {
+		return this._value[index];
+	}
+
 	/**
 	 * Pushes an value on to the array. If it is bound to an java instance,
 	 * the value has to be serializeable 

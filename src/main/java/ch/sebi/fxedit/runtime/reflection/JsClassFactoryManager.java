@@ -6,6 +6,7 @@ import java.util.Map;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.eclipsesource.v8.V8Array;
 import com.eclipsesource.v8.V8Object;
 
 import ch.sebi.fxedit.exception.FactoryNotFoundException;
@@ -75,8 +76,8 @@ public class JsClassFactoryManager {
 		getFactory(id).initClass(runtime, jsClassObj);
 	}
 
-	public void initObject(String id, V8Object jsObj) throws FactoryNotFoundException {
-		getFactory(id).initObject(runtime, jsObj);
+	public void initObject(String id, V8Object jsObj, V8Array args) throws FactoryNotFoundException {
+		getFactory(id).initObject(runtime, jsObj, args);
 	}
 	
 }

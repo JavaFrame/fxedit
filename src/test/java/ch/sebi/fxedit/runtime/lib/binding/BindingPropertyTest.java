@@ -26,6 +26,7 @@ import com.eclipsesource.v8.V8Object;
 import com.eclipsesource.v8.V8ScriptExecutionException;
 
 import ch.sebi.fxedit.exception.FactoryNotFoundException;
+import ch.sebi.fxedit.exception.FailedObjectCreationException;
 import ch.sebi.fxedit.exception.InvalidTypeException;
 import ch.sebi.fxedit.exception.NoIdFoundException;
 import ch.sebi.fxedit.exception.SerializeException;
@@ -87,7 +88,7 @@ public class BindingPropertyTest {
 			latch.countDown();
 		}, "_bindingChanged");
 		V8Object jsProp = v8.executeObjectScript(
-				"let binding = new (require('binding').Binding)('jsInitValue');"
+				"let binding = new (require('util.binding').Binding)('jsInitValue');"
 						+ "binding.addListener((oldV, newV) => _bindingChanged(oldV, newV)); binding;",
 				"jsPropTest", 0);
 		assertFalse(jsProp.isUndefined(), "Js Binding is undefined");
@@ -112,7 +113,7 @@ public class BindingPropertyTest {
 	@Test
 	void testWrongType() throws InterruptedException, SerializeException {
 		StringProperty javaProp = new SimpleStringProperty("val1");
-		V8Object jsProp = v8.executeObjectScript("let binding = new (require('binding').Binding)('jsInitValue');binding;",
+		V8Object jsProp = v8.executeObjectScript("let binding = new (require('util.binding').Binding)('jsInitValue');binding;",
 				"jsPropTest", 0);
 		assertFalse(jsProp.isUndefined(), "Js Binding is undefined");
 		BindingUtils.bindProperty(javaProp, jsProp, String.class, runtime);
@@ -132,16 +133,17 @@ public class BindingPropertyTest {
 	 * @throws InterruptedException
 	 * @throws FactoryNotFoundException 
 	 * @throws SerializeException 
+	 * @throws FailedObjectCreationException 
 	 */
 	@Test
-	void testSerializeBinding() throws InterruptedException, FactoryNotFoundException, SerializeException {
+	void testSerializeBinding() throws InterruptedException, FactoryNotFoundException, SerializeException, FailedObjectCreationException {
 		runtime.getObjectPool().registerClass("test.complex-binding", TestComplexBinding.class);
 
 		CountDownLatch latch = new CountDownLatch(1);
 		AtomicInteger stateCounter = new AtomicInteger(0);
 
-		TestComplexBinding testObj = runtime.getObjectPool().createObject(TestComplexBinding.class);
-		TestComplexBinding testObj2 = runtime.getObjectPool().createObject(TestComplexBinding.class);
+		TestComplexBinding testObj = runtime.createObject(TestComplexBinding.class);
+		TestComplexBinding testObj2 = runtime.createObject(TestComplexBinding.class);
 
 		ObjectProperty<TestComplexBinding> javaProp = new SimpleObjectProperty<>(testObj);
 
@@ -170,7 +172,7 @@ public class BindingPropertyTest {
 			stateCounter.incrementAndGet();
 		}, "_bindingChanged");
 		V8Object jsProp = v8.executeObjectScript(
-				"let binding = new (require('binding').Binding)('jsInitValue');"
+				"let binding = new (require('util.binding').Binding)('jsInitValue');"
 						+ "binding.addListener((oldV, newV) => _bindingChanged(oldV, newV)); binding;",
 				"jsPropTest", 0);
 		assertFalse(jsProp.isUndefined(), "Js Binding is undefined");
@@ -187,15 +189,16 @@ public class BindingPropertyTest {
 	 * @throws InterruptedException
 	 * @throws FactoryNotFoundException 
 	 * @throws SerializeException 
+	 * @throws FailedObjectCreationException 
 	 */
 	@Test
-	void testDeserializeBinding() throws InterruptedException, FactoryNotFoundException, SerializeException {
+	void testDeserializeBinding() throws InterruptedException, FactoryNotFoundException, SerializeException, FailedObjectCreationException {
 		runtime.getObjectPool().registerClass("test.complex-binding", TestComplexBinding.class);
 
 		CountDownLatch latch = new CountDownLatch(1);
 		AtomicInteger stateCounter = new AtomicInteger(0);
 
-		TestComplexBinding testObj = runtime.getObjectPool().createObject(TestComplexBinding.class);
+		TestComplexBinding testObj = runtime.createObject(TestComplexBinding.class);
 		TestComplexBinding testObj2 = null;
 
 		ObjectProperty<TestComplexBinding> javaProp = new SimpleObjectProperty<>(testObj);
@@ -203,7 +206,7 @@ public class BindingPropertyTest {
 			latch.countDown();
 		});
 		V8Object jsProp = v8.executeObjectScript(
-				"binding = new (require('binding').Binding)('jsInitValue');" + 
+				"binding = new (require('util.binding').Binding)('jsInitValue');" + 
 				"testObj = new (require('test.complex-binding'))();" +
 				"binding;",
 				"jsPropTest", 0);
@@ -222,7 +225,7 @@ public class BindingPropertyTest {
 		runtime.close();
 	}
 	
-	@JsObject()
+	@JsObject("new (require('test.complex-binding'))()")
 	private static class TestComplexBinding {
 		private Logger logger = LogManager.getLogger();
 		@JsId

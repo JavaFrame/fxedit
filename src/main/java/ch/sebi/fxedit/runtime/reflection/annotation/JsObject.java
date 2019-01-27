@@ -20,5 +20,5 @@ public @interface JsObject {
 	 * the javascript object (with the _id field).
 	 * @return the js code 
 	 */
-	String jsConstructorCode() default "";
+	String value() default "";
 }

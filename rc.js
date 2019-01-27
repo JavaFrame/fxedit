@@ -1,24 +1,38 @@
-let Binding = require("binding");
-let Test = require("test")
+let Binding = require("util.binding");
+let Window = require("window.window");
+let Tab = require("window.tab");
+let TextEditor = require("editor.texteditor");
+let FileSource = require("source.filesource");
 
-let testObj = []
-let testProxy = new Proxy(testObj, {
-    set(target, property, value, receiver) {
-        print("set: ", target, property, value, receiver)
-        return true;
-    },
-    deleteProperty(target, property) {
-        print("delete: ", target, property)
-        return true;
-    }, 
-    defineProperty(target, property, descriptor) {
-        print("define: ", target, property, descriptor)
-        return true;
-    },
-    apply(target, thisArg, argumentsList) {
-        print("applay: ", target, thisArg, argumentsList)
-    }
+let Mode = require("util.shortcutmode");
+
+
+let root = require("window.root");
+
+root.windows.addListener((oldArray, newArray, changes) => print("windows changed"))
+
+let window = root.windows.get(0);
+window.title.value = "test title";
+
+window.centerTabs.value.tabs.addListener((oldArray, newArray, changes) => {
+    print("new tabs:")
+    newArray.forEach(tab => print("tab: ", tab.title.value))
+});
+
+let tab = new Tab();
+tab.title.value = "new"
+window.centerTabs.value.tabs.push(tab);
+
+let tab2 = new Tab();
+tab2.title.value = "test tab 2"
+window.centerTabs.value.tabs.push(tab2);
+
+let textEditor = new TextEditor();
+tab.editor.value = textEditor;
+
+root.getShortcutManager().currentMode.register("o", Mode.NONE, ctx => {
+    print("o pressed")
+    let source = new FileSource("./rc.js");
+    textEditor.source.value = source;
 })
 
-testProxy.testProp1 = "testvalue1 for testProp1";
-testProxy.push("test push")

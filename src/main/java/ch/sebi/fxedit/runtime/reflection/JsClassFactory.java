@@ -1,7 +1,9 @@
 package ch.sebi.fxedit.runtime.reflection;
 
+import com.eclipsesource.v8.V8Array;
 import com.eclipsesource.v8.V8Object;
 
+import ch.sebi.fxedit.exception.FailedObjectCreationException;
 import ch.sebi.fxedit.runtime.JsRuntime;
 
 /**
@@ -21,13 +23,15 @@ public interface JsClassFactory {
 	 * called when an object is initialized. 
 	 * @param runtime the runtime
 	 * @param object the object which is initialized
+	 * @param args the arguments to the constructor of the java object
 	 */
-	public void initObject(JsRuntime runtime, V8Object object);
+	public void initObject(JsRuntime runtime, V8Object object, V8Array args);
 	
 	/**
 	 * Creates and java and its js object and returns the java object
 	 * @param runtime the runtime
+	 * @param args the arguments to the constructor
 	 * @return the java object
 	 */
-	public Object createObject(JsRuntime runtime);
+	public Object createObject(JsRuntime runtime, Object[] args) throws FailedObjectCreationException;
 }

@@ -22,6 +22,7 @@ import com.eclipsesource.v8.V8ResultUndefined;
 import com.eclipsesource.v8.V8Value;
 
 import ch.sebi.fxedit.exception.FactoryNotFoundException;
+import ch.sebi.fxedit.exception.FailedObjectCreationException;
 import ch.sebi.fxedit.exception.InvalidTypeException;
 import ch.sebi.fxedit.exception.NoIdFoundException;
 import ch.sebi.fxedit.exception.SerializeException;
@@ -92,16 +93,7 @@ public class ObjectPool implements Closeable {
 		if (runtime.getFactoryManager().doesFactoryExist(moudlePath))
 			return;
 
-		AnnotationMatch<JsObject> jsObject = Annotations.findAnnotations(searchClazz, JsObject.class).get(0);
-		AnnotationMatch<JsId> jsId = Annotations.findAnnotations(searchClazz, JsId.class).get(0);
-
-		List<AnnotationMatch<JsFunction>> jsFunctionAnnotationList = Annotations.findAnnotationsInHierarchy(searchClazz,
-				JsFunction.class);
-		List<AnnotationMatch<JsBinding>> jsBindingAnnotationList = Annotations.findAnnotationsInHierarchy(searchClazz,
-				JsBinding.class);
-
-		JsAnnotationClassFactory factory = new JsAnnotationClassFactory(searchClazz, jsObject, jsId,
-				jsBindingAnnotationList, jsFunctionAnnotationList, moudlePath, this);
+		JsAnnotationClassFactory factory = new JsAnnotationClassFactory(searchClazz, moudlePath, this);
 
 		runtime.getFactoryManager().registerFactory(moudlePath, factory);
 		annotationClassFactories.put(searchClazz, factory);
@@ -262,13 +254,14 @@ public class ObjectPool implements Closeable {
 	 * @param clazz the class which should be instantiated
 	 * @return the created object
 	 * @throws FactoryNotFoundException
+	 * @throws FailedObjectCreationException
 	 */
-	public <T> T createObject(Class<T> clazz) throws FactoryNotFoundException {
+	public <T> T createObject(Class<T> clazz, Object[] args) throws FactoryNotFoundException, FailedObjectCreationException {
 		JsAnnotationClassFactory factory = annotationClassFactories.get(clazz);
 		if (factory == null) {
 			throw new FactoryNotFoundException(clazz.getName());
 		}
-		Object obj = factory.createObject(runtime);
+		Object obj = factory.createObject(runtime, args);
 		if (!clazz.isInstance(obj)) {
 			throw new IllegalArgumentException("Wrong class: \"" + clazz.getName() + "\" isn't compatible with \""
 					+ obj.getClass().getName() + "\"");
@@ -278,13 +271,15 @@ public class ObjectPool implements Closeable {
 
 	/**
 	 * Serializes an object to an type which is supported by the 2jv8 library.
-	 * Primitives like Double, Integer, Float, Number, Boolean or Strings are returned without any
-	 * conversion, so is any V8Value and any null value. For any other regular object, the associated js
-	 * object is returned. This requires a {@link JsId} annotation to work and the object has to be created using
+	 * Primitives like Double, Integer, Float, Number, Boolean or Strings are
+	 * returned without any conversion, so is any V8Value and any null value. For
+	 * any other regular object, the associated js object is returned. This requires
+	 * a {@link JsId} annotation to work and the object has to be created using
 	 * {@link #createObject(Class)}
+	 * 
 	 * @param clazz the type of object
-	 * @param obj the object to serialize
-	 * @return the serialized object 
+	 * @param obj   the object to serialize
+	 * @return the serialized object
 	 * @throws SerializeException
 	 */
 	public <T> Object serialize(Class<T> clazz, T obj) throws SerializeException {
@@ -297,6 +292,11 @@ public class ObjectPool implements Closeable {
 			try {
 				long id = getId(obj);
 				V8Object jsObj = getJsObj(id);
+				if (jsObj.isReleased()) {
+					throw new SerializeException(
+							"Couldn't serialize object, because V8Value was already released (clazz: \""
+									+ clazz.getName() + "\")");
+				}
 				return jsObj;
 			} catch (NoIdFoundException e) {
 				throw new SerializeException("Couldn't serialize object, because no Id was found in the pool", e);
@@ -305,19 +305,22 @@ public class ObjectPool implements Closeable {
 	}
 
 	/**
-	 * Deserializes an object from the j2v8 library. Primitives such as Double, Integer, Float, Number,
-	 * Booleans or Strings are casted returned. If there was an error while casting, an {@link InvalidTypeException}
-	 * is thrown. For V8, the associated java object is returned using the id. For this to work and
-	 * {@link JsId} annotation is required and the v8 object has to have a java representation
+	 * Deserializes an object from the j2v8 library. Primitives such as Double,
+	 * Integer, Float, Number, Booleans or Strings are casted returned. If there was
+	 * an error while casting, an {@link InvalidTypeException} is thrown. For V8,
+	 * the associated java object is returned using the id. For this to work and
+	 * {@link JsId} annotation is required and the v8 object has to have a java
+	 * representation
+	 * 
 	 * @param clazz the clas which is expected
-	 * @param obj the object to deserialize to the given class
+	 * @param obj   the object to deserialize to the given class
 	 * @return the deserialized object
 	 * @throws SerializeException
 	 * @throws InvalidTypeException
 	 */
 	public <T> T deserialize(Class<T> clazz, Object obj) throws SerializeException, InvalidTypeException {
 		if (obj instanceof Double || obj instanceof Integer || obj instanceof Float || obj instanceof Number
-				|| obj instanceof Boolean || obj instanceof String)  {
+				|| obj instanceof Boolean || obj instanceof String) {
 			if (!clazz.isInstance(obj)) {
 				throw new InvalidTypeException(
 						"Cannot deserialize \"" + obj.getClass().getName() + "\" to \"" + clazz.getName() + "\"");
@@ -325,7 +328,7 @@ public class ObjectPool implements Closeable {
 			return (T) obj;
 		} else if (obj == null) {
 			return null;
-		} else if(obj instanceof V8Object) {
+		} else if (obj instanceof V8Object) {
 			try {
 				V8Object v8Obj = (V8Object) obj;
 				long id = getId(v8Obj);
@@ -334,7 +337,8 @@ public class ObjectPool implements Closeable {
 				throw new SerializeException("Couldn't serialize object, because no Id was found in the pool", e);
 			}
 		} else {
-			throw new IllegalArgumentException("Class \"" + obj.getClass().getName() + "\" cannot be deserialized to a java object");
+			throw new IllegalArgumentException(
+					"Class \"" + obj.getClass().getName() + "\" cannot be deserialized to a java object");
 		}
 	}
 

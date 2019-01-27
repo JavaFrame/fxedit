@@ -1,7 +1,9 @@
-package ch.sebi.fxedit.model.ui;
+package ch.sebi.fxedit.model.ui.window;
 
 import ch.sebi.fxedit.exception.FactoryNotFoundException;
+import ch.sebi.fxedit.exception.FailedObjectCreationException;
 import ch.sebi.fxedit.runtime.JsRuntime;
+import ch.sebi.fxedit.runtime.reflection.annotation.JsBinding;
 import ch.sebi.fxedit.runtime.reflection.annotation.JsId;
 import ch.sebi.fxedit.runtime.reflection.annotation.JsObject;
 import javafx.beans.property.BooleanProperty;
@@ -15,7 +17,7 @@ import javafx.collections.ObservableList;
  *
  */
 @JsObject
-public class TabModel {
+public class TabPaneModel {
 	/**
 	 * the js id
 	 */
@@ -25,20 +27,22 @@ public class TabModel {
 	/**
 	 * the buffers which are shown in this tab
 	 */
-	private ObservableList<BufferModel> buffers = FXCollections.observableArrayList();
+	@JsBinding(type = TabModel.class)
+	private ObservableList<TabModel> tabs = FXCollections.observableArrayList();
 	
 	/**
 	 * if this tab pane is visible
 	 */
+	@JsBinding(type = Boolean.class)
 	private BooleanProperty visible = new SimpleBooleanProperty();
 	
 	/**
 	 * constructor<br>
-	 * use {@link #createTabModel(JsRuntime)} to create an instance
+	 * use {@link #createTabPaneModel(JsRuntime)} to create an instance
 	 * 
-	 * @see #createTabModel(JsRuntime)
+	 * @see #createTabPaneModel(JsRuntime)
 	 */
-	private TabModel() {
+	private TabPaneModel() {
 	}
 
 	/**
@@ -69,8 +73,8 @@ public class TabModel {
 	 * Returns the buffer observable list
 	 * @return the buffers on this tab pane
 	 */
-	public ObservableList<BufferModel> getBuffers() {
-		return buffers;
+	public ObservableList<TabModel> getTabs() {
+		return tabs;
 	}
 	
 	/**
@@ -78,10 +82,10 @@ public class TabModel {
 	 * @param runtime the js runtime
 	 * @return the tab model
 	 */
-	public static TabModel createTabModel(JsRuntime runtime) {
+	public static TabPaneModel createTabPaneModel(JsRuntime runtime) {
 		try {
-			return runtime.getObjectPool().createObject(TabModel.class);
-		} catch (FactoryNotFoundException e) {
+			return runtime.createObject(TabPaneModel.class);
+		} catch (FactoryNotFoundException | FailedObjectCreationException e) {
 			throw new IllegalStateException("Could not create a TabModel object", e);
 		}
 	}

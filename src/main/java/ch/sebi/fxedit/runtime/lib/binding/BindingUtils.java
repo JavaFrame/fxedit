@@ -47,7 +47,7 @@ public class BindingUtils {
 	 */
 	public static <T> V8Object createBinding(JsRuntime runtime) {
 		V8 v8 = runtime.getV8();
-		V8Object binding = v8.executeObjectScript("new (require('binding').Binding)();");
+		V8Object binding = v8.executeObjectScript("new (require('util.binding').Binding)();");
 		return binding;
 	}
 
@@ -59,7 +59,7 @@ public class BindingUtils {
 	 */
 	public static <T> V8Object createArrayBinding(JsRuntime runtime) {
 		V8 v8 = runtime.getV8();
-		V8Object binding = v8.executeObjectScript("new (require('binding').ArrayBinding)();");
+		V8Object binding = v8.executeObjectScript("new (require('util.binding').ArrayBinding)();");
 		return binding;
 	}
 
@@ -172,16 +172,21 @@ public class BindingUtils {
 		// init variables used
 		V8 v8 = runtime.getV8();
 		ObjectPool pool = runtime.getObjectPool();
-		MemoryManager scope = new MemoryManager(v8);
+		//MemoryManager scope = new MemoryManager(v8);
 
 		resetArrayBinding(list, arrayBinding, runtime);
+		boolean[] recentlyChanged = new boolean[] { false };
 
 		V8Array addListenerArgs = new V8Array(v8);
 		addListenerArgs.push(new V8Function(v8, new JavaCallback() {
 
 			@Override
 			public Object invoke(V8Object receiver, V8Array parameters) {
-				MemoryManager scope = new MemoryManager(v8);
+				if (recentlyChanged[0]) {
+					recentlyChanged[0] = false;
+					return null;
+				}
+				//MemoryManager scope = new MemoryManager(v8);
 				V8Array oldArray = parameters.getArray(0);
 				V8Array newArray = parameters.getArray(1);
 				V8Array changes = parameters.getArray(2);
@@ -195,6 +200,7 @@ public class BindingUtils {
 						for (int i = from; i < to; i++) {
 							try {
 								T obj = pool.deserialize(clazz, newArray.get(i));
+								recentlyChanged[0] = true;
 								list.add(obj);
 							} catch (SerializeException | InvalidTypeException e) {
 								logger.error("Cannot deserialize id \"" + i + "\" from newArray!", e);
@@ -202,10 +208,11 @@ public class BindingUtils {
 						}
 						break;
 					case "permutation":
-						throw new UnsupportedOperationException("The 'permutation' type isn't");
+						throw new UnsupportedOperationException("The 'permutation' type isn't supported");
 					case "remove":
 						// starts from to, to not change the ids of the list
 						for (int i = to - 1; i >= from; i--) {
+							recentlyChanged[0] = true;
 							list.remove(i);
 						}
 						break;
@@ -213,6 +220,7 @@ public class BindingUtils {
 						for (int i = from; i < to; i++) {
 							try {
 								T obj = pool.deserialize(clazz, newArray.get(i));
+								recentlyChanged[0] = true;
 								list.set(i, obj);
 							} catch (SerializeException | InvalidTypeException e) {
 								logger.error("Cannot deserialize id \"" + i + "\" from newArray!", e);
@@ -220,18 +228,23 @@ public class BindingUtils {
 						}
 						break;
 					case "reset":
-						throw new UnsupportedOperationException("The 'reset' type isn't");
+						throw new UnsupportedOperationException("The 'reset' type isn't supported");
 					default:
-						throw new UnsupportedOperationException("The \"" + type + "\" type isn't");
+						throw new UnsupportedOperationException("The \"" + type + "\" type isn't supported");
 					}
 				}
-				scope.release();
+				//scope.release();
 				return null;
 			}
 		}));
+		arrayBinding.executeVoidFunction("addListener", addListenerArgs);
 
 		list.addListener((ListChangeListener<T>) c -> {
-			MemoryManager changeListenerScope = new MemoryManager(v8);
+			if (recentlyChanged[0]) {
+				recentlyChanged[0] = false;
+				return;
+			}
+			//MemoryManager changeListenerScope = new MemoryManager(v8);
 			try {
 				while (c.next()) {
 					// fetches the array. It is in the while loop, so that it is up to date
@@ -288,21 +301,22 @@ public class BindingUtils {
 					fireListenersArgs.push(_array);
 					fireListenersArgs.push(arrayBinding.get("_value")); // fetches the new array after the operations
 					V8Object change = createChange(type, c.getFrom(), c.getTo(), runtime);
-					fireListenersArgs.push(change);
+					fireListenersArgs.push(V8ObjectUtils.toV8Array(v8, Arrays.asList(change)));
+					recentlyChanged[0] = true;
 					arrayBinding.executeVoidFunction("_fireListeners", fireListenersArgs);
 				}
 			} catch (Exception e) {
-				//if an error occured, reset the array binding, so it is the same as the java
-				//this should prevent out of sync arrays
+				// if an error occured, reset the array binding, so it is the same as the java
+				// this should prevent out of sync arrays
 				logger.error("An error occurred; reset ArrayBinding", e);
 				resetArrayBinding(list, arrayBinding, runtime);
 			} finally {
 				// this ensures that the scope is always released
-				changeListenerScope.release();
+				//changeListenerScope.release();
 			}
 		});
 
-		scope.release();
+		//scope.release();
 	}
 
 	/**
@@ -318,7 +332,7 @@ public class BindingUtils {
 		V8 v8 = runtime.getV8();
 		ObjectPool pool = runtime.getObjectPool();
 
-		MemoryManager scope = new MemoryManager(v8);
+		//MemoryManager scope = new MemoryManager(v8);
 
 		// serialize object list
 		List<Object> serializedList = new ArrayList<>();
@@ -350,36 +364,17 @@ public class BindingUtils {
 		fireChangesArgs.push(_array);
 		fireChangesArgs.push(_arrayNew);
 		fireChangesArgs.push(changes);
-		arrayBinding.executeFunction("_fireChanges", fireChangesArgs);
+		arrayBinding.executeFunction("_fireListeners", fireChangesArgs);
 
 		// release created v8 objects
-		scope.release();
+		//scope.release();
 	}
 
 	private static V8Object createChange(String type, int from, int to, JsRuntime runtime) {
 		V8 v8 = runtime.getV8();
 		V8Object change = v8.executeObjectScript(
-				"new (require('binding).Change)('" + type + "', " + from + ", " + to + ");", "createChangeScript", 0);
+				"new (require('util.binding').Change)('" + type + "', " + from + ", " + to + ");", "createChangeScript", 0);
 		return change;
 	}
 
-	private static <T> void replayChangeOnJavaList(String type, int from, int to, ObservableList<T> list,
-			V8Array oldArray, V8Array newArray, JsRuntime runtime) {
-
-		V8 v8 = runtime.getV8();
-		ObjectPool pool = runtime.getObjectPool();
-		MemoryManager scope = new MemoryManager(v8);
-		switch (type) {
-		case "add":
-			break;
-		case "remove":
-			break;
-		case "update":
-			break;
-		case "permutation":
-			break;
-		default:
-			throw new IllegalStateException("Illegal type \"" + type + "\"");
-		}
-	}
 }

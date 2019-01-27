@@ -13,8 +13,10 @@ import com.eclipsesource.v8.JavaVoidCallback;
 import com.eclipsesource.v8.V8;
 import com.eclipsesource.v8.V8Array;
 import com.eclipsesource.v8.V8Object;
+import com.eclipsesource.v8.utils.MemoryManager;
 
 import ch.sebi.fxedit.exception.FactoryNotFoundException;
+import ch.sebi.fxedit.exception.FailedObjectCreationException;
 import ch.sebi.fxedit.exception.ScriptNotFoundException;
 import ch.sebi.fxedit.runtime.lib.require.RequireLib;
 import ch.sebi.fxedit.runtime.reflection.JsClassFactoryManager;
@@ -27,9 +29,8 @@ public class JsRuntime implements Closeable {
 
 	private RequireLib requireLib;
 
-	private JsClassFactoryManager factoryManager; 
+	private JsClassFactoryManager factoryManager;
 	private ObjectPool objectPool;
-
 
 	public JsRuntime() {
 		v8 = V8.createV8Runtime();
@@ -56,15 +57,15 @@ public class JsRuntime implements Closeable {
 			@Override
 			public Object invoke(V8Object receiver, V8Array parameters) {
 				if (parameters.length() != 1) {
-					throw new IllegalArgumentException(
-							"require(path) expectes 1 parameters");
+					throw new IllegalArgumentException("require(path) expectes 1 parameters");
 				}
 				String path = parameters.getString(0);
 				try {
 					return requireLib.jsRequire(path);
 				} catch (IOException e) {
-					throw new RuntimeException(e);
+					logger.error("Couldn't load \"" + path + "\"", e);
 				}
+				return null;
 			}
 		}, "require");
 		v8.add("requirePaths", requirePathArray);
@@ -105,18 +106,22 @@ public class JsRuntime implements Closeable {
 			}
 		}, "_initClass");
 		v8.registerJavaMethod((JavaVoidCallback) (receiver, parameters) -> {
-			if (parameters.length() != 2) {
-				throw new IllegalArgumentException("_initObject(id, obj) expectes 2 parameters");
+			if (parameters.length() < 2) {
+				throw new IllegalArgumentException("_initObject(id, obj[,args...]) expectes at least 2 parameters");
 			}
-			String id = parameters.getString(0);
-			V8Object jsObj = parameters.getObject(1);
-			V8 v8 = getV8();
 			try {
-				factoryManager.initObject(id, jsObj);
+				String id = parameters.getString(0);
+				V8Object jsObj = parameters.getObject(1);
+
+				V8Array constructorArgs = new V8Array(v8);
+				for (int i = 2; i < parameters.length(); i++) {
+					constructorArgs.push(parameters.get(i));
+				}
+
+				factoryManager.initObject(id, jsObj.twin(), constructorArgs);
 			} catch (FactoryNotFoundException e) {
 				throw new RuntimeException(e);
 			} finally {
-				jsObj.release();
 			}
 		}, "_initObj");
 		File classPropertiesFile = new File("./classes.properties");
@@ -170,30 +175,34 @@ public class JsRuntime implements Closeable {
 	public ObjectPool getObjectPool() {
 		return objectPool;
 	}
-	
+
 	/**
 	 * Returns the factory manager
+	 * 
 	 * @return the factory manager
 	 */
 	public JsClassFactoryManager getFactoryManager() {
 		return factoryManager;
 	}
-	
+
 	/**
-	 * Creates a new object with the {@link JsAnnotationClassFactory} which is registered for
-	 * the given class. If the factory is not found, then a {@link FactoryNotFoundException} is
-	 * thrown
+	 * Creates a new object with the {@link JsAnnotationClassFactory} which is
+	 * registered for the given class. If the factory is not found, then a
+	 * {@link FactoryNotFoundException} is thrown
+	 * 
 	 * @param clazz the class which should be created
 	 * @return the created object
 	 * @throws FactoryNotFoundException
+	 * @throws FailedObjectCreationException
 	 * @see {@link ObjectPool#createObject(Class, JsRuntime)}
 	 */
-	public <T> T createObject(Class<T> clazz) throws FactoryNotFoundException {
-		return getObjectPool().createObject(clazz);
+	public <T> T createObject(Class<T> clazz, Object...args) throws FactoryNotFoundException, FailedObjectCreationException {
+		return getObjectPool().createObject(clazz, args);
 	}
-	
+
 	/**
 	 * Returns the require lib object
+	 * 
 	 * @return the require lib
 	 */
 	public RequireLib getRequireLib() {

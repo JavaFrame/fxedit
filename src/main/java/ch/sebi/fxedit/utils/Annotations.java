@@ -9,6 +9,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * A class with handy functions for using annotations
@@ -16,6 +17,19 @@ import java.util.List;
  *
  */
 public class Annotations {
+	/**
+	 * Finds the annotation which are defined on the search class (NOT the implemented interfaces or super class)
+	 * @param searchClass the class to search in
+	 * @param annotationClass the annotation class
+	 * @return all found annotations
+	 */
+	public static <T extends Annotation> Optional<AnnotationMatch<T>> findAnnotation(Class<?> searchClass, Class<T> annotationClass) {
+		List<AnnotationMatch<T>> l = findAnnotations(searchClass, annotationClass);
+		if(l.isEmpty()) {
+			return Optional.empty();
+		}
+		return Optional.ofNullable(l.get(0));
+	}
 	/**
 	 * Finds the annotations which are defined on the search class (NOT the implemented interfaces or super class)
 	 * @param searchClass the class to search in
