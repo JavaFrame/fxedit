@@ -40,6 +40,7 @@ public class FileTextBufferSource implements TextBufferSource {
 
 	private void loadContent() throws IOException {
 		File file = new File(path);
+		if(!file.exists()) file.createNewFile();
 		BufferedReader reader = new BufferedReader(new FileReader(file));
 		content = "";
 		try {

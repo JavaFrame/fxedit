@@ -15,6 +15,7 @@ import ch.sebi.fxedit.model.ui.window.TabModel;
 import ch.sebi.fxedit.model.ui.window.TabPaneModel;
 import ch.sebi.fxedit.model.ui.window.WindowModel;
 import javafx.application.Platform;
+import javafx.beans.value.ChangeListener;
 import javafx.collections.ListChangeListener;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
@@ -45,17 +46,13 @@ public class FXTabPaneController {
 
 		tabPane.setOnDragOver(event -> {
 			if (draggedTabModel != null && draggedTabController != this) {
-				System.out.println("accepted");
 				event.acceptTransferModes(TransferMode.COPY_OR_MOVE);
 				event.consume();
 			} else {
-				System.out.println("not accepted");
 			}
 		});
 		tabPane.setOnDragDropped(event -> {
 			if (draggedTabModel != null && draggedTabController != this) {
-				String title = event.getDragboard().getString();
-				Node n = (Node) event.getDragboard().getContent(NODE_DATA_FORMAT);
 				draggedTabController.getModel().getTabs().remove(draggedTabModel);
 				model.getTabs().add(draggedTabModel);
 				draggedTabModel = null;
@@ -70,8 +67,27 @@ public class FXTabPaneController {
 		tabPane.setOnDragExited(event -> {
 			tabPane.setStyle("-fx-background: white");
 		});
+		tabPane.getSelectionModel().selectedIndexProperty().addListener((ChangeListener<Number>) (observable, oldValue, newValue) -> {
+			int index = newValue.intValue();
+			Tab tab = tabPane.getTabs().get(index);
+			TabModel tabModel = null;
+			// search tab model for selected tab
+			for(TabModel key : tabMap.keySet()) {
+				if(tab == tabMap.get(key)) {
+					tabModel = key;
+				}
+			}
+
+			if(tabModel != null)
+				FXEditModel.getFXEditModel().setCurrentTab(tabModel);
+		});
 	}
 
+	/**
+	 * initializes the listeners for a tab to drag and drop
+	 * @param t the tab
+	 * @param model the tab model
+	 */
 	private void initListeners(Tab t, TabModel model) {
 		System.out.println("added init listener to " + t.getText());
 		Node n = t.getGraphic();

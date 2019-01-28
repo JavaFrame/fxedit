@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.eclipsesource.v8.V8Function;
 import com.eclipsesource.v8.V8Object;
 import com.eclipsesource.v8.V8ResultUndefined;
 import com.eclipsesource.v8.V8Value;
@@ -331,6 +332,10 @@ public class ObjectPool implements Closeable {
 		} else if (obj instanceof V8Object) {
 			try {
 				V8Object v8Obj = (V8Object) obj;
+				if(v8Obj.isUndefined()) return null;
+				if(v8Obj.getV8Type() == V8Value.V8_FUNCTION) {
+					return (T) v8Obj;
+				}
 				long id = getId(v8Obj);
 				return (T) getJavaObj(id);
 			} catch (NoIdFoundException e) {

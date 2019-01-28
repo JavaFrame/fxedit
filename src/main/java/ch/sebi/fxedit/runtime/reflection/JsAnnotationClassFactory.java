@@ -189,10 +189,19 @@ public class JsAnnotationClassFactory implements JsClassFactory {
 		} catch (InstantiationException | IllegalAccessException | SerializeException | IllegalArgumentException
 				| InvocationTargetException | NoSuchMethodException | SecurityException | InvalidTypeException e) {
 			throw new IllegalStateException(
-					"An java object which belongs to a js object must have a zero-argument constructor", e);
+					"Could not created object of the type \"" + clazz.getName() + "\"", e);
 		}
 	}
 
+	/**
+	 * initializes the bindings of the object
+	 * @param runtime the js runtime 
+	 * @param object the v8 object to which the bindings should be added
+	 * @param obj the java object which should be used
+	 * @throws IllegalArgumentException 
+	 * @throws IllegalAccessException
+	 * @throws SerializeException
+	 */
 	private void initBindings(JsRuntime runtime, V8Object object, Object obj)
 			throws IllegalArgumentException, IllegalAccessException, SerializeException {
 		for (AnnotationMatch<JsBinding> binding : bindingAnnotations) {
@@ -230,6 +239,15 @@ public class JsAnnotationClassFactory implements JsClassFactory {
 		}
 	}
 
+	/**
+	 * initializes the variables of an object
+	 * @param runtime the js runtime
+	 * @param object the js object to which the variables are added
+	 * @param obj the java object which is the source of the variables
+	 * @throws IllegalArgumentException
+	 * @throws IllegalAccessException
+	 * @throws SerializeException
+	 */
 	private void initVar(JsRuntime runtime, V8Object object, Object obj)
 			throws IllegalArgumentException, IllegalAccessException, SerializeException {
 		for (AnnotationMatch<JsVar> var : varAnnotations) {
@@ -340,13 +358,8 @@ public class JsAnnotationClassFactory implements JsClassFactory {
 			if (jsObj.isUndefined()) {
 				throw new IllegalStateException("Module returned by jsConstructorCode is undefined");
 			}
-			try {
-				long objId = ObjectPool.getId(jsObj);
-				return runtime.getObjectPool().getJavaObj(objId);
-			} catch (NoIdFoundException e) {
-				logger.error("Could not retrieve _id from created object: ", e);
-				return null;
-			}
+			long objId = ObjectPool.getId(jsObj);
+			return runtime.getObjectPool().getJavaObj(objId);
 		} catch (V8ResultUndefined e) {
 			throw new FailedObjectCreationException(
 					"JS constructor code produces undefined (code: \"" + jsConstructorCode + "\")");

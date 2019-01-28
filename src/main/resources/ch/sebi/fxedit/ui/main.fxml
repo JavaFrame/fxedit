@@ -35,6 +35,8 @@
    <bottom>
       <HBox maxWidth="1.7976931348623157E308" prefHeight="20.0" BorderPane.alignment="CENTER">
          <children>
+            <Label text="Mode:" />
+            <Label fx:id="modeL" prefWidth="70.0" />
             <Label text="Typed: " />
             <Label fx:id="typedL" />
          </children>

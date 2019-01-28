@@ -155,7 +155,7 @@ class ArrayBinding {
 	 */
 	set(index, value) {
 		let oldValue = this._value;
-		let changes = [new Change(Cahnge.UPDATE_TYPE, index, index + 1)];
+		let changes = [new Change(Change.UPDATE_TYPE, index, index + 1)];
 		this._value[index] = value;
 		this._fireListeners(oldValue, this._value, changes)
 	}
@@ -175,9 +175,9 @@ class ArrayBinding {
 		if(startI < 0) startI = this._value.length - startI;
 		let deleteCountI = Math.min(deleteCount, this._value.length-start);
 		if(deleteCountI < 0) deleteCountI = 0;
-		let changes = [new Change(Cahnge.REMOVE_TYPE, startI, startI+deleteCountI)];
+		let changes = [new Change(Change.REMOVE_TYPE, startI, startI+deleteCountI)];
 		this._value.splice.bind(this._value, arguments);
-		this._fireListenersl(oldValue, this._value, changes);
+		this._fireListeners(oldValue, this._value, changes);
 	}
 
 	/**

@@ -11,8 +11,9 @@ class ShortcutMode {
     static get NO_MATCH() { return "no match" }
     static get POSSIBLE_MATCH() { return "possible match" }
 
-    constructor(name) {
+    constructor(name, consumesEvents = true) {
         this.name = name;
+        this.consumesEvents = consumesEvents;
         this.root = new Key("<root>");
     }
 
@@ -26,6 +27,7 @@ class ShortcutMode {
             let key = currentKey.children[code];
             if(key == null) {
                 key = new Key(code);
+                print("create new key ", key)
                 currentKey.children[code] = key;
             }
             if(keys.length > 0) {
@@ -34,10 +36,12 @@ class ShortcutMode {
             } else {
                 //no codes left -> set listener to last key object
                 key.listener = listener;
+                print("set listener to ", key)
             }
         }
 
         _register(this.root, keySplitted, listener);
+        print("root: ", this.root);
     }
 
     execute(keys, context) {
@@ -48,9 +52,11 @@ class ShortcutMode {
                 //couldn't resolve keys
                 return ShortcutMode.NO_MATCH;
             }
-            if(keys.length == 0 && key.children.length != 0)  {
+            let childrenLength = Object.keys(key.children).length;
+            if(keys.length == 0 && childrenLength != 0)  {
+                print("possible match: " + key.code + ", children: ", key)
                 return ShortcutMode.POSSIBLE_MATCH;  
-            } else if(keys.length == 0 && key.children.length == 0) {
+            } else if(keys.length == 0 && childrenLength == 0) {
                 let listener = key.listener;
                 if(listener == null) {
                     throw new Error("Found edge key with no listener");
@@ -66,3 +72,5 @@ class ShortcutMode {
        return _execute(this.root, keys.reverse());
     }
 }
+
+return ShortcutMode;
