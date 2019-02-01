@@ -54,11 +54,13 @@ public class BindingPropertyTest {
 	}
 
 	/**
-	 * Tests if the the java property and js binding are linked correctly
-	 * and listeners are called correctly. This tests uses Strings. Types like int, float
-	 * long, ... should work too. If complex data structure work is tested in a different Test
+	 * Tests if the the java property and js binding are linked correctly and
+	 * listeners are called correctly. This tests uses Strings. Types like int,
+	 * float long, ... should work too. If complex data structure work is tested in
+	 * a different Test
+	 * 
 	 * @throws InterruptedException
-	 * @throws SerializeException 
+	 * @throws SerializeException
 	 */
 	@Test
 	void testSetJavaProp() throws InterruptedException, SerializeException {
@@ -105,16 +107,17 @@ public class BindingPropertyTest {
 	}
 
 	/**
-	 * Tests if an exception is thrown, if the js binding is set to a data type which isn't supported by
-	 * the java property.
+	 * Tests if an exception is thrown, if the js binding is set to a data type
+	 * which isn't supported by the java property.
+	 * 
 	 * @throws InterruptedException
-	 * @throws SerializeException 
+	 * @throws SerializeException
 	 */
 	@Test
 	void testWrongType() throws InterruptedException, SerializeException {
 		StringProperty javaProp = new SimpleStringProperty("val1");
-		V8Object jsProp = v8.executeObjectScript("let binding = new (require('util.binding').Binding)('jsInitValue');binding;",
-				"jsPropTest", 0);
+		V8Object jsProp = v8.executeObjectScript(
+				"let binding = new (require('util.binding').Binding)('jsInitValue');binding;", "jsPropTest", 0);
 		assertFalse(jsProp.isUndefined(), "Js Binding is undefined");
 		BindingUtils.bindProperty(javaProp, jsProp, String.class, runtime);
 		V8Array setValueArgs = new V8Array(v8);
@@ -129,14 +132,17 @@ public class BindingPropertyTest {
 	}
 
 	/**
-	 * Tests if serialization of complex object works and property and bindings are linked correctly
+	 * Tests if serialization of complex object works and property and bindings are
+	 * linked correctly
+	 * 
 	 * @throws InterruptedException
-	 * @throws FactoryNotFoundException 
-	 * @throws SerializeException 
-	 * @throws FailedObjectCreationException 
+	 * @throws FactoryNotFoundException
+	 * @throws SerializeException
+	 * @throws FailedObjectCreationException
 	 */
 	@Test
-	void testSerializeBinding() throws InterruptedException, FactoryNotFoundException, SerializeException, FailedObjectCreationException {
+	void testSerializeBinding()
+			throws InterruptedException, FactoryNotFoundException, SerializeException, FailedObjectCreationException {
 		runtime.getObjectPool().registerClass("test.complex-binding", TestComplexBinding.class);
 
 		CountDownLatch latch = new CountDownLatch(1);
@@ -146,7 +152,6 @@ public class BindingPropertyTest {
 		TestComplexBinding testObj2 = runtime.createObject(TestComplexBinding.class);
 
 		ObjectProperty<TestComplexBinding> javaProp = new SimpleObjectProperty<>(testObj);
-
 
 		v8.registerJavaMethod((JavaVoidCallback) (receiver, parameters) -> {
 			assertEquals(parameters.length(), 2, "Invalid call to _bindingChanged");
@@ -185,14 +190,17 @@ public class BindingPropertyTest {
 	}
 
 	/**
-	 * Tests if deserialization of complex object works and property and bindings are linked correctly
+	 * Tests if deserialization of complex object works and property and bindings
+	 * are linked correctly
+	 * 
 	 * @throws InterruptedException
-	 * @throws FactoryNotFoundException 
-	 * @throws SerializeException 
-	 * @throws FailedObjectCreationException 
+	 * @throws FactoryNotFoundException
+	 * @throws SerializeException
+	 * @throws FailedObjectCreationException
 	 */
 	@Test
-	void testDeserializeBinding() throws InterruptedException, FactoryNotFoundException, SerializeException, FailedObjectCreationException {
+	void testDeserializeBinding()
+			throws InterruptedException, FactoryNotFoundException, SerializeException, FailedObjectCreationException {
 		runtime.getObjectPool().registerClass("test.complex-binding", TestComplexBinding.class);
 
 		CountDownLatch latch = new CountDownLatch(1);
@@ -205,11 +213,8 @@ public class BindingPropertyTest {
 		javaProp.addListener((o, oldV, newV) -> {
 			latch.countDown();
 		});
-		V8Object jsProp = v8.executeObjectScript(
-				"binding = new (require('util.binding').Binding)('jsInitValue');" + 
-				"testObj = new (require('test.complex-binding'))();" +
-				"binding;",
-				"jsPropTest", 0);
+		V8Object jsProp = v8.executeObjectScript("binding = new (require('util.binding').Binding)('jsInitValue');"
+				+ "testObj = new (require('test.complex-binding'))();" + "binding;", "jsPropTest", 0);
 		assertFalse(jsProp.isUndefined(), "Js Binding is undefined");
 		BindingUtils.bindProperty(javaProp, jsProp, TestComplexBinding.class, runtime);
 		long id = v8.executeIntegerScript("testObj._id");
@@ -224,33 +229,33 @@ public class BindingPropertyTest {
 	void teardown() throws IOException {
 		runtime.close();
 	}
-	
+
 	@JsObject("new (require('test.complex-binding'))()")
 	private static class TestComplexBinding {
 		private Logger logger = LogManager.getLogger();
 		@JsId
 		private long id;
-		
+
 		@JsBinding(type = TestComplexBinding.class)
 		private ObjectProperty<TestComplexBinding> ref = new SimpleObjectProperty<>();
-		
-		 public TestComplexBinding() {
+
+		public TestComplexBinding() {
 		}
-		
+
 		@JsFunction
 		private void printTest(String text) {
 			logger.info("TEST: " + text);
 		}
-		
-		public ObjectProperty<TestComplexBinding>  refProperty() {
+
+		public ObjectProperty<TestComplexBinding> refProperty() {
 			return ref;
 		}
-		
+
 		@Override
 		public boolean equals(Object obj) {
 			// TODO Auto-generated method stub
 			return super.equals(obj);
 		}
-		
+
 	}
 }

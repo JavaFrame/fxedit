@@ -12,13 +12,15 @@ import ch.sebi.fxedit.ui.controller.window.FXApplication;
 
 public class FXEditStartup {
 	private static Logger logger = LogManager.getLogger(FXEditStartup.class);
+
 	public static void main(String[] args) throws IOException {
 		logger.info("Start FXEdit");
 		FXApplication.startup(args);
-/*		logger.traceEntry();
-
-		JsRuntime runtime = new JsRuntime();
-		runtime.executeRC();
-		ObjectPool pool = runtime.getObjectPool();*/
+		/*
+		 * logger.traceEntry();
+		 * 
+		 * JsRuntime runtime = new JsRuntime(); runtime.executeRC(); ObjectPool pool =
+		 * runtime.getObjectPool();
+		 */
 	}
 }
