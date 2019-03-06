@@ -20,7 +20,7 @@ public class FXEditStartup {
 		 * logger.traceEntry();
 		 * 
 		 * JsRuntime runtime = new JsRuntime(); runtime.executeRC(); ObjectPool pool =
-		 * runtime.getObjectPool();
+		 * runtime.getObjectPool();Übung1
 		 */
 	}
 }
